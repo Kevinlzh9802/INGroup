@@ -1,57 +1,105 @@
-from datetime import datetime, timedelta, timezone
-from scipy.io import wavfile
-from utils import normalize_audio
+import os
+import json
+import subprocess
+import soundfile as sf
+import matplotlib.pyplot as plt
 
-def plot_mic_audio(wav_path, plt_obj, start_time, sample_rate, start_time_str=None, end_time_str=None, track_idx=0, target_rate=4000):
-    """
-    Plot microphone audio with specified start time and sample rate.
-    """
-    # Load audio
-    rate, data = wavfile.read(wav_path)
-    if rate != sample_rate:
-        print(f"Warning: File sample rate ({rate} Hz) differs from specified rate ({sample_rate} Hz)")
-    
-    # Handle multi-track audio
-    if len(data.shape) > 1:
-        if track_idx >= data.shape[1]:
-            print(f"Warning: Track index {track_idx} out of range. Using first track.")
-            track_idx = 0
-        data = data[:, track_idx]
-    
-    # Normalize the audio data
-    data = normalize_audio(data)
-    
-    # Generate timestamps
-    timestamps = [start_time + timedelta(seconds=i / sample_rate) for i in range(len(data))]
+def timecode_to_seconds(tc: str, fps=25):
+    h, m, s, f = map(int, tc.split(':'))
+    return h * 3600 + m * 60 + s + f / fps
 
-    # Filter data based on time range if specified
-    if start_time_str and end_time_str:
-        # Parse time with possible milliseconds
-        try:
-            start_range_time = datetime.strptime(start_time_str, '%H:%M:%S.%f').time()
-        except ValueError:
-            start_range_time = datetime.strptime(start_time_str, '%H:%M:%S').time()
-            
-        try:
-            end_range_time = datetime.strptime(end_time_str, '%H:%M:%S.%f').time()
-        except ValueError:
-            end_range_time = datetime.strptime(end_time_str, '%H:%M:%S').time()
-            
-        start_range = datetime.combine(start_time.date(), start_range_time, tzinfo=timezone(timedelta(hours=2)))
-        end_range = datetime.combine(start_time.date(), end_range_time, tzinfo=timezone(timedelta(hours=2)))
-        
-        # Filter data points within range
-        mask = [(t >= start_range and t <= end_range) for t in timestamps]
-        timestamps = [t for t, m in zip(timestamps, mask) if m]
-        data = data[mask]
 
-    # # Downsample the data
-    # data = downsample_audio(data, rate, target_rate)
-    # # Adjust timestamps for downsampled data
-    # timestamps = [start_time + timedelta(seconds=i / target_rate) for i in range(len(data))]
+def get_file_info(filepath):
+    cmd = [
+        'ffprobe', '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format', '-show_streams',
+        filepath
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    metadata = json.loads(result.stdout)
 
-    # Overlay on existing plot
-    plt_obj.plot(timestamps, data, label=f'Microphone Audio (Track {track_idx})', alpha=0.7, linewidth=0.5)
-    plt_obj.legend(fontsize='small')
-    
-    return data, timestamps, target_rate
+    timecode = metadata['format']['tags'].get('timecode')
+    duration = float(metadata['format']['duration'])
+    return timecode, duration
+
+
+def build_file_timeline(audio_dir, fps):
+    timeline = []
+    for fname in sorted(os.listdir(audio_dir)):
+        if fname.lower().endswith('.wav'):
+            full_path = os.path.join(audio_dir, fname)
+            timecode, duration = get_file_info(full_path)
+            if timecode:
+                start_sec = timecode_to_seconds(timecode, fps)
+                end_sec = start_sec + duration
+                timeline.append({
+                    'filename': full_path,
+                    'start_time': start_sec,
+                    'end_time': end_sec
+                })
+    return timeline
+
+
+def find_files_for_range(timeline, start_sec, end_sec):
+    result = []
+    for entry in timeline:
+        if end_sec <= entry['start_time']:
+            break
+        if start_sec < entry['end_time'] and end_sec > entry['start_time']:
+            result.append(entry)
+    return result
+
+
+def extract_audio_segment(filepath, track_index, start_time, end_time, file_start, samplerate):
+    data, sr = sf.read(filepath)
+    assert sr == samplerate, "Sample rate mismatch"
+    channel_data = data[:, track_index]
+    start_sample = int((start_time - file_start) * sr)
+    end_sample = int((end_time - file_start) * sr)
+    return channel_data[start_sample:end_sample]
+
+
+def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, fps=25, samplerate=48000):
+    start_sec = timecode_to_seconds(start_tc, fps)
+    end_sec = timecode_to_seconds(end_tc, fps)
+
+    timeline = build_file_timeline(audio_dir, fps)
+    selected_files = find_files_for_range(timeline, start_sec, end_sec)
+
+    if not selected_files:
+        print("❌ No files found for the given timecode range.")
+        return
+
+    waveform = []
+
+    for file_info in selected_files:
+        file_start = file_info['start_time']
+        file_end = file_info['end_time']
+        filepath = file_info['filename']
+
+        seg_start = max(start_sec, file_start)
+        seg_end = min(end_sec, file_end)
+
+        segment = extract_audio_segment(filepath, track_index, seg_start, seg_end, file_start, samplerate)
+        waveform.extend(segment)
+
+    # 绘图
+    plt.figure(figsize=(10, 4))
+    plt.plot(waveform)
+    plt.title(f"Waveform from {start_tc} to {end_tc}")
+    plt.xlabel("Sample Index")
+    plt.ylabel("Amplitude")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+# usage
+plot_audio_waveform_by_timecode(
+    audio_dir='../data/',
+    start_tc='17:17:04:10',
+    end_tc='17:18:06:00',
+    track_index=40,
+    fps=29.97,
+    samplerate=48000
+)
