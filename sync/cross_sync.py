@@ -3,18 +3,18 @@ from datetime import date
 import os
 from process_video import plot_camera_audio, get_timecode, extract_audio
 from process_midge import plot_midge_audio
-from process_microphone import plot_mic_audio
+from process_microphone import plot_audio_waveform_by_timecode
 from utils import timecode_to_datetime
 
 # Global configuration
 # Edit this path to the data path
-data_path = "C:/Users/zongh/OneDrive - Delft University of Technology/tudelft/projects/dataset_collection/cross_modal_sync/"
-CAMERA_PATH_1 = os.path.join(data_path, "camera/trial2/GH010359.MP4")
-CAMERA_PATH_2 = os.path.join(data_path, "camera/trial2/GH010543.MP4")  # Add your second camera path
-MIDGE_PATH_1 = os.path.join(data_path, "midge/trial3/0MICHI1.wav")
-MIDGE_PATH_2 = os.path.join(data_path, "midge/trial2/59/1748360592823_audio_2.wav")
-MIC_PATH_1 = os.path.join(data_path, "microphone/UFX01_07.wav")
-MIC_PATH_2 = os.path.join(data_path, "microphone/UFX01_08.wav")
+DATA_PATH = "E:/OneDrive - Delft University of Technology/tudelft/projects/dataset_collection/cross_modal_sync/"
+CAMERA_PATH_1 = os.path.join(DATA_PATH, "camera/trial2/GH010359.MP4")
+CAMERA_PATH_2 = os.path.join(DATA_PATH, "camera/trial2/GH010543.MP4")  # Add your second camera path
+MIDGE_PATH_1 = os.path.join(DATA_PATH, "midge/trial3/0MICHI1.wav")
+MIDGE_PATH_2 = os.path.join(DATA_PATH, "midge/trial2/59/1748360592823_audio_2.wav")
+MIC_PATH_1 = os.path.join(DATA_PATH, "microphone/UFX01_07.wav")
+MIC_PATH_2 = os.path.join(DATA_PATH, "microphone/UFX01_08.wav")
 
 # Time configuration
 MIC_START_TIMECODE = "17:44:55:15"  # Mic start time in timecode format (HH:MM:SS:FF)
@@ -31,12 +31,11 @@ MIC_TRACK_IDX_2 = 3          # Index of the microphone track to plot (0-based)
 
 def main():
     # Create a single matplotlib plot object (figure and axes)
-    plt.figure(figsize=(12, 4))
-    plt.title('Audio Signal Over Time')
-    plt.xlabel('Time')
-    plt.ylabel('Amplitude')
-    plt.tight_layout()
-    plt_obj = plt
+    fig, ax = plt.subplots(figsize=(12, 4))
+    ax.set_title('Audio Signal Over Time')
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Amplitude')
+    fig.tight_layout()
 
     print(f"Processing camera 1: {CAMERA_PATH_1}")
     timecode1 = get_timecode(CAMERA_PATH_1)
@@ -86,7 +85,7 @@ def main():
     if os.path.exists(midge1_ts_path):
         print(f"Using external timestamps: {midge1_ts_path}")
         midge1_data, midge1_timestamps, midge1_rate = plot_midge_audio(
-            MIDGE_PATH_1, midge1_ts_path, plt_obj,
+            MIDGE_PATH_1, midge1_ts_path, plt_obj=ax,
             start_time_str=CUT_START_TIME,
             end_time_str=CUT_END_TIME
         )
@@ -101,34 +100,50 @@ def main():
     #     end_time_str=CUT_END_TIME
     # )
 
-    plt.show()
+    # plt.show()
     
     # Convert mic start timecode to datetime using mic frame rate
     mic_start_time = timecode_to_datetime(MIC_START_TIMECODE, MIC_FRAME_RATE, date(2025, 5, 27))
     
     # Add microphone audio
-    mic_data, mic_timestamps, mic_rate = plot_mic_audio(
-        MIC_PATH_1, plt_obj, mic_start_time, MIC_SAMPLE_RATE,
-        start_time_str=CUT_START_TIME,
-        end_time_str=CUT_END_TIME,
-        track_idx=MIC_TRACK_IDX_1
-    )
+    # mic_data, mic_timestamps, mic_rate = plot_mic_audio(
+    #     MIC_PATH_1, plt_obj, mic_start_time, MIC_SAMPLE_RATE,
+    #     start_time_str=CUT_START_TIME,
+    #     end_time_str=CUT_END_TIME,
+    #     track_idx=MIC_TRACK_IDX_1
+    # )
 
-    mic_data, mic_timestamps, mic_rate = plot_mic_audio(
-        MIC_PATH_2, plt_obj, mic_start_time, MIC_SAMPLE_RATE,
-        start_time_str=CUT_START_TIME,
-        end_time_str=CUT_END_TIME,
-        track_idx=MIC_TRACK_IDX_2
-    )
+    # mic_data, mic_timestamps, mic_rate = plot_mic_audio(
+    #     MIC_PATH_2, plt_obj, mic_start_time, MIC_SAMPLE_RATE,
+    #     start_time_str=CUT_START_TIME,
+    #     end_time_str=CUT_END_TIME,
+    #     track_idx=MIC_TRACK_IDX_2
+    # )
 
     # Print time ranges for debugging
     # print("\nTime ranges for each source:")
     # print(f"Camera 1: {camera1_timestamps[0]} to {camera1_timestamps[-1]}")
     # print(f"Midge 1: {midge1_timestamps[0]} to {midge1_timestamps[-1]}")
     # print(f"Mic 1: {mic_timestamps[0]} to {mic_timestamps[-1]}")
+    # Get base date and timezone from midge timestamps
+    base_datetime = midge1_timestamps[0]
+    base_date = base_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+    base_tz = base_datetime.tzinfo
 
+    plot_audio_waveform_by_timecode(
+        audio_dir=DATA_PATH + 'microphone/',
+        start_tc=CUT_START_TIME,
+        end_tc=CUT_END_TIME,
+        track_index=40,
+        fps=29.97,
+        samplerate=48000,
+        ax=ax,
+        base_date=base_date,
+        base_tz=base_tz
+    )
     plt.show()
     plt.savefig('camera_audio.png')
 
 if __name__ == "__main__":
     main()
+    

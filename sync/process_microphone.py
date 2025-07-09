@@ -3,9 +3,19 @@ import json
 import subprocess
 import soundfile as sf
 import matplotlib.pyplot as plt
+import datetime
+import matplotlib.dates as mdates
+import numpy as np
 
 def timecode_to_seconds(tc: str, fps=25):
-    h, m, s, f = map(int, tc.split(':'))
+    parts = list(map(int, tc.split(':')))
+    if len(parts) == 3:
+        h, m, s = parts
+        f = 0
+    elif len(parts) == 4:
+        h, m, s, f = parts
+    else:
+        raise ValueError(f"Invalid timecode format: {tc}")
     return h * 3600 + m * 60 + s + f / fps
 
 
@@ -60,7 +70,11 @@ def extract_audio_segment(filepath, track_index, start_time, end_time, file_star
     return channel_data[start_sample:end_sample]
 
 
-def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, fps=25, samplerate=48000):
+def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, fps=25, samplerate=48000, ax=None, base_date=None, base_tz=None):
+    """
+    Plot the audio waveform for a given timecode range on the provided matplotlib Axes.
+    If ax is None, a new figure and axes will be created.
+    """
     start_sec = timecode_to_seconds(start_tc, fps)
     end_sec = timecode_to_seconds(end_tc, fps)
 
@@ -72,6 +86,14 @@ def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, 
         return
 
     waveform = []
+    times = []
+    # Use a reference date (e.g., today)
+    if base_date is None:
+        ref_date = datetime.datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        ref_date = base_date
+    if base_tz is not None:
+        ref_date = ref_date.replace(tzinfo=base_tz)
 
     for file_info in selected_files:
         file_start = file_info['start_time']
@@ -83,23 +105,28 @@ def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, 
 
         segment = extract_audio_segment(filepath, track_index, seg_start, seg_end, file_start, samplerate)
         waveform.extend(segment)
+        n_samples = len(segment)
+        # Each sample's absolute time as datetime
+        segment_times = [ref_date + datetime.timedelta(seconds=seg_start + i / samplerate) for i in range(n_samples)]
+        times.extend(segment_times)
+
+    # Normalize waveform before plotting
+    if len(waveform) > 0:
+        waveform = np.array(waveform)
+        waveform = waveform / np.max(np.abs(waveform))
 
     # 绘图
-    plt.figure(figsize=(10, 4))
-    plt.plot(waveform)
-    plt.title(f"Waveform from {start_tc} to {end_tc}")
-    plt.xlabel("Sample Index")
-    plt.ylabel("Amplitude")
-    plt.grid(True)
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(times, waveform)
+    ax.set_title(f"Waveform from {start_tc} to {end_tc}")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Amplitude")
+    ax.grid(True)
+    # Format x-axis as HH:MM:SS
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
     plt.tight_layout()
-    plt.show()
+    # Do not call plt.show() here
 
 # usage
-plot_audio_waveform_by_timecode(
-    audio_dir='../data/',
-    start_tc='17:17:04:10',
-    end_tc='17:18:06:00',
-    track_index=40,
-    fps=29.97,
-    samplerate=48000
-)
+
