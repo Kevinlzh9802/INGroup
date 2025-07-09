@@ -99,7 +99,7 @@ def plot_camera_audio(wav_path, timecode_str, plt_obj=None, manual_date=None, st
         plt_obj = plt
 
     # Plot on the provided or new plot object
-    plt_obj.plot(timestamps, data, label=f'Video Audio ({os.path.basename(wav_path)})', alpha=0.7, linewidth=0.5)
+    plt_obj.plot(timestamps, data, label=f'Video Audio ({os.path.basename(wav_path)})', alpha=0.6, linewidth=0.8)
     plt_obj.legend(fontsize='small')
 
     return plt_obj, start_time, data, timestamps, target_rate

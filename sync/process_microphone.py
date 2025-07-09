@@ -118,13 +118,14 @@ def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, 
     # 绘图
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(times, waveform)
+    ax.plot(times, waveform, alpha=0.6, linewidth=0.8, label=f'Microphone Audio (Track {track_index})')
     ax.set_title(f"Waveform from {start_tc} to {end_tc}")
     ax.set_xlabel("Time")
     ax.set_ylabel("Amplitude")
-    ax.grid(True)
+    ax.grid(True, alpha=0.3)
     # Format x-axis as HH:MM:SS
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S:%f"))
+    ax.legend(fontsize='small')
     plt.tight_layout()
     # Do not call plt.show() here
 

@@ -8,7 +8,7 @@ from utils import timecode_to_datetime
 
 # Global configuration
 # Edit this path to the data path
-DATA_PATH = "E:/OneDrive - Delft University of Technology/tudelft/projects/dataset_collection/cross_modal_sync/"
+DATA_PATH = "C:/Users/zongh/OneDrive - Delft University of Technology/tudelft/projects/dataset_collection/cross_modal_sync/"
 CAMERA_PATH_1 = os.path.join(DATA_PATH, "camera/trial2/GH010359.MP4")
 CAMERA_PATH_2 = os.path.join(DATA_PATH, "camera/trial2/GH010543.MP4")  # Add your second camera path
 MIDGE_PATH_1 = os.path.join(DATA_PATH, "midge/trial3/0MICHI1.wav")
@@ -31,10 +31,11 @@ MIC_TRACK_IDX_2 = 3          # Index of the microphone track to plot (0-based)
 
 def main():
     # Create a single matplotlib plot object (figure and axes)
-    fig, ax = plt.subplots(figsize=(12, 4))
-    ax.set_title('Audio Signal Over Time')
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.set_title('Audio Signal Over Time (with opacity for overlap visibility)', fontsize=14)
     ax.set_xlabel('Time')
     ax.set_ylabel('Amplitude')
+    ax.grid(True, alpha=0.3)
     fig.tight_layout()
 
     print(f"Processing camera 1: {CAMERA_PATH_1}")
@@ -141,8 +142,8 @@ def main():
         base_date=base_date,
         base_tz=base_tz
     )
-    plt.show()
     plt.savefig('camera_audio.png')
+    plt.show()
 
 if __name__ == "__main__":
     main()

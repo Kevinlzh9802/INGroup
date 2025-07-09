@@ -55,7 +55,7 @@ def plot_midge_audio_old(wav_path, plt_obj, camera_start_time, start_time_str=No
     # timestamps = [start_time + timedelta(seconds=i / target_rate) for i in range(len(data))]
 
     # Overlay on existing plot with different colors and transparency
-    plt_obj.plot(timestamps, data, label=os.path.basename(wav_path), alpha=0.7, linewidth=0.5)
+    plt_obj.plot(timestamps, data, label=os.path.basename(wav_path), alpha=0.6, linewidth=0.8)
     plt_obj.legend(fontsize='small')
     
     return data, timestamps, target_rate
@@ -115,7 +115,7 @@ def plot_midge_audio(wav_path, timestamps_path, plt_obj, start_time_str=None, en
     interp_times = np.array([datetime.fromtimestamp(ts, tz=TIMEZONE) for ts in interp_times_float])
 
     # Plot
-    plt_obj.plot(interp_times, data, label=os.path.basename(wav_path) + ' (interpolated)', alpha=0.7, linewidth=0.5)
+    plt_obj.plot(interp_times, data, label=os.path.basename(wav_path) + ' (interpolated)', alpha=0.6, linewidth=0.8)
     plt_obj.legend(fontsize='small')
     return data, interp_times, rate
 
