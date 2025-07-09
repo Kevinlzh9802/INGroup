@@ -82,7 +82,7 @@ def plot_audio_waveform_by_timecode(audio_dir, start_tc, end_tc, track_index=1, 
     selected_files = find_files_for_range(timeline, start_sec, end_sec)
 
     if not selected_files:
-        print("❌ No files found for the given timecode range.")
+        print("! No files found for the given timecode range.")
         return
 
     waveform = []
