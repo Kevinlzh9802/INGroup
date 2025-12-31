@@ -162,33 +162,146 @@ def parse_video_into_segments(video_path, output_dir, segment_duration=60):
     print(f"  Frames saved to: {frames_dir}")
 
 
+def extract_frames_around_timestamp(video_path, timestamp, output_dir="./data/camera/video_output/frames/ts_frames", 
+                                     before_sec=0.5, after_sec=1.0, image_format='jpg', clear_past=True):
+    """
+    Extract frames within a time window around a specific timestamp.
+    
+    Args:
+        video_path: Path to the input video file
+        timestamp: Timestamp as [mm, ss] (e.g., [2, 5] for 2:05)
+        output_dir: Directory to store extracted frames
+        before_sec: Time window before timestamp in seconds (default: 0.5)
+        after_sec: Time window after timestamp in seconds (default: 1.0)
+        image_format: Output image format, 'jpg' or 'png' (default: 'jpg')
+        clear_past: Clear past frames in the output directory (default: True)
+    
+    Returns:
+        List of saved frame paths
+    """
+    # Create output directory
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Clear past frames if clear_past is True
+    if clear_past:
+        for file in output_path.glob(f"*.{image_format}"):
+            file.unlink()
+    
+    # Get video info
+    try:
+        video_info = get_video_info(video_path)
+        fps = video_info['fps']
+        duration = video_info['duration']
+        print(f"Video FPS: {fps:.2f}, Duration: {duration:.2f}s")
+    except Exception as e:
+        print(f"Error getting video info: {e}")
+        return []
+    
+    # Convert timestamp to seconds
+    mm, ss = timestamp
+    target_time = mm * 60 + ss
+    
+    # Calculate time window
+    start_time = max(0, target_time - before_sec)
+    end_time = min(duration, target_time + after_sec)
+    
+    print(f"Extracting frames from {start_time:.2f}s to {end_time:.2f}s")
+    print(f"Target timestamp: {mm:02d}:{ss:02d} ({target_time:.2f}s)")
+    
+    # Calculate frame range
+    start_frame = int(start_time * fps)
+    end_frame = int(end_time * fps)
+    
+    # Get video name without extension
+    video_name = Path(video_path).stem
+    
+    # Set OpenCV read attempts
+    os.environ['OPENCV_FFMPEG_READ_ATTEMPTS'] = '10000'
+    
+    # Open video
+    cap = cv2.VideoCapture(str(video_path))
+    if not cap.isOpened():
+        print(f"Error: Could not open video file {video_path}")
+        return []
+    
+    # Set video position to start frame
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+    
+    saved_frames = []
+    current_frame = start_frame
+    consecutive_failures = 0
+    max_consecutive_failures = 100
+    
+    while current_frame <= end_frame:
+        ret, frame = cap.read()
+        
+        if not ret:
+            consecutive_failures += 1
+            if consecutive_failures > max_consecutive_failures:
+                print(f"Warning: Too many consecutive read failures, stopping early")
+                break
+            current_frame += 1
+            continue
+        
+        consecutive_failures = 0
+        
+        # Calculate the actual time of this frame
+        time_of_frame = current_frame / fps
+        
+        # Calculate mm and ss for this specific frame
+        frame_mm = int(time_of_frame // 60)
+        frame_ss = int(time_of_frame % 60)
+        
+        # Calculate frame number within the second
+        # e.g., if time_of_frame is 64.5s with 60fps, frame_in_second = 30
+        frame_in_second = int((time_of_frame % 1) * fps)
+        
+        # Create filename: videoname_mm_ss_ff.jpg (ff is frame number within the second)
+        frame_filename = output_path / f"{video_name}_{frame_mm:02d}_{frame_ss:02d}_{frame_in_second:04d}.{image_format}"
+        
+        # Save frame
+        cv2.imwrite(str(frame_filename), frame)
+        saved_frames.append(frame_filename)
+        
+        current_frame += 1
+    
+    cap.release()
+    
+    print(f"Extracted {len(saved_frames)} frames")
+    print(f"Frames saved to: {output_path}")
+    
+    return saved_frames
+
+
 def main():
-    parser = argparse.ArgumentParser(
-        description="Parse video into segments and extract frames"
-    )
-    parser.add_argument(
-        "--video_path",
-        help="Path to the input video file"
-    )
-    parser.add_argument(
-        "-o", "--output",
-        default="./video_output",
-        help="Output directory (default: ./video_output)"
-    )
-    parser.add_argument(
-        "-d", "--duration",
-        type=int,
-        default=60,
-        help="Segment duration in seconds (default: 60)"
-    )
+    # parser = argparse.ArgumentParser(
+    #     description="Parse video into segments and extract frames"
+    # )
+    # parser.add_argument(
+    #     "--video_path",
+    #     help="Path to the input video file"
+    # )
+    # parser.add_argument(
+    #     "-o", "--output",
+    #     default="./video_output",
+    #     help="Output directory (default: ./video_output)"
+    # )
+    # parser.add_argument(
+    #     "-d", "--duration",
+    #     type=int,
+    #     default=60,
+    #     help="Segment duration in seconds (default: 60)"
+    # )
     
-    args = parser.parse_args()
+    # args = parser.parse_args()
     
-    if not os.path.exists(args.video_path):
-        print(f"Error: Video file not found: {args.video_path}")
-        return
+    # if not os.path.exists(args.video_path):
+    #     print(f"Error: Video file not found: {args.video_path}")
+    #     return
     
-    parse_video_into_segments(args.video_path, args.output, args.duration)
+    # parse_video_into_segments(args.video_path, args.output, args.duration)
+    extract_frames_around_timestamp("E:\data_temp\outputs\camera_09.MP4", [1, 33])
 
 
 if __name__ == "__main__":
